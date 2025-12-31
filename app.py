@@ -89,7 +89,7 @@ df = pd.DataFrame(results)
 
 # --- 6. INVESTOR DASHBOARD ---
 y3 = df.iloc[2]
-st.title(f"🌲 {view_mode} | Institutional Portal")
+st.title(f" {view_mode} | Institutional Portal")
 
 # THE HERO METRICS
 m1, m2, m3, m4 = st.columns(4)
