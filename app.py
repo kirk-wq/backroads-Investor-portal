@@ -87,7 +87,7 @@ df = pd.DataFrame(results)
 y3 = df.iloc[2]
 
 # --- 6. INVESTOR VIEW ---
-st.title(f"🌲 {view_mode} | Institutional Portal")
+st.title(f" {view_mode} | Institutional Portal")
 
 # HERO METRICS
 m1, m2, m3, m4 = st.columns(4)
