@@ -92,7 +92,7 @@ for i in range(3):
 df = pd.DataFrame(results)
 
 # --- 6. INVESTOR PORTAL ---
-st.title(f"🌲 {view_mode} | Institutional Scenario Portal")
+st.title(f" {view_mode} | Institutional Scenario Portal")
 
 # THE DYNAMIC FOCUS SELECTOR
 focus_year = st.selectbox("🎯 Select Focus Year for Unit Economic Metrics:", ["Year 1", "Year 2", "Year 3"], index=2)
