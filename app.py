@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 BR_BLACK, BR_OFF_BLACK, BR_GOLD = "#010101", "#231f1f", "#ab895e"
 BR_GRAY, BR_RED, BR_WHITE = "#9f9f9f", "#e51937", "#f1f1f1"
 
-st.set_page_config(page_title="Backroads Reclamation | Institutional Portal", layout="wide")
+st.set_page_config(page_title="Northmark Materials | Institutional Portal", layout="wide")
 
 st.markdown(f"""
     <style>
