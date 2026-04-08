@@ -55,11 +55,13 @@ for i, tab in enumerate(tabs):
 st.sidebar.divider()
 view_mode = st.sidebar.radio("Dashboard View:", ["Revenue & Growth", "Debt & Cash Flow"])
 
-# --- 5. CALIBRATED ENGINE ---
+# --- 5. CALIBRATED ENGINE (UPDATED TO v6.1 MODEL) ---
 years, base_homes, base_recovery = ["Year 1", "Year 2", "Year 3"], [457, 960, 1200], [0.5, 0.6, 0.65]
 base_rev_targets = [4753166, 12469066, 17820600]
-base_costs = [775128, 1642413, 3015339] 
-era_grants = [0, 610000, 575000]
+# Updated Margin Targets from v6.1
+base_margin_targets = [3953338, 10819704, 15428193]
+# Updated ERA Grants from v6.1
+era_grants = [590396, 761900, 632296]
 
 results = []
 for i in range(3):
@@ -79,32 +81,33 @@ for i in range(3):
     mat_rev = (h * 600)
     
     tot_rev = lum_rev + tip_fee_rev + mat_rev
-    costs = base_costs[i] * (1 + p["v"]) * (1 + p["c"])
+    # Cost Logic: Calibrated to v6.1 Gross Margin gaps
+    base_cost_basis = base_rev_targets[i] - base_margin_targets[i]
+    costs = base_cost_basis * (1 + p["v"]) * (1 + p["c"])
     margin = tot_rev - costs
     
     results.append({
         "Year": years[i], "HEQ": h, "Lumber": lum_rev, "Tipping": tip_fee_rev, 
         "Materials": mat_rev, "Total Revenue": tot_rev, "Margin": margin, 
-        "ERA": era_grants[i], "Cash": margin + era_grants[i], "Costs": costs,
-        "Base Case Plan": base_rev_targets[i]
+        "ERA": era_grants[i], "Cash": margin + era_grants[i], "Costs": costs
     })
 
 df = pd.DataFrame(results)
 
 # --- 6. INVESTOR PORTAL ---
-st.title(f" {view_mode} | Institutional Scenario Portal")
+st.title(f"🏗️ {view_mode} | Northmark Institutional Portal")
 
 # THE DYNAMIC FOCUS SELECTOR
 focus_year = st.selectbox("🎯 Select Focus Year for Unit Economic Metrics:", ["Year 1", "Year 2", "Year 3"], index=2)
 f_idx = ["Year 1", "Year 2", "Year 3"].index(focus_year)
-fd = df.iloc[f_idx] # Focused Data Row
+fd = df.iloc[f_idx] 
 
-# HERO METRICS (Updating Based on Selector)
+# HERO METRICS
 m1, m2, m3, m4 = st.columns(4)
 with m1: st.metric(f"{focus_year} Revenue / Home", f"${fd['Total Revenue']/fd['HEQ']:,.0f}")
 with m2: st.metric(f"{focus_year} Cost / Home", f"${fd['Costs']/fd['HEQ']:,.0f}")
 with m3: st.metric(f"{focus_year} Net Margin", f"${fd['Margin']/1e6:.2f}M")
-with m4: st.metric(f"{focus_year} Efficiency", f"{(fd['Margin']/fd['Total Revenue']*100):.1f}%")
+with m4: st.metric(f"{focus_year} 3-Yr Cash Inflow", f"${df['Cash'].sum()/1e6:.2f}M", help="Operating Margin + ERA Grant Reimbursements")
 
 st.divider()
 
@@ -112,7 +115,6 @@ col1, col2 = st.columns([2, 1])
 
 if view_mode == "Revenue & Growth":
     with col1:
-        # Chart with Interactivity Note
         fig = go.Figure()
         fig.add_trace(go.Bar(x=df['Year'], y=df['HEQ'], name='HEQ Volume', marker_color=BR_GRAY, yaxis='y2'))
         fig.add_trace(go.Scatter(x=df['Year'], y=df['Tipping'], name='Tipping Revenue Floor', line=dict(color=BR_GOLD, width=4)))
@@ -124,34 +126,31 @@ if view_mode == "Revenue & Growth":
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
-        st.caption("💡 Note: Hover over bars/lines for data. Click legend items to toggle visibility.")
-
     with col2:
         st.subheader(f"Unit Composition ({focus_year})")
         st.write(f"**Lumber Recovered / Home:** ${fd['Lumber']/fd['HEQ']:,.0f}")
         st.write(f"**Feedstock Tipping / Home:** ${fd['Tipping']/fd['HEQ']:,.0f}")
-        st.write(f"**Materials Salvage / Home:** ${fd['Materials']/fd['HEQ']:,.0f}")
+        st.write(f"**Materials Salvage / Home:** ${600:,.0f}")
         st.markdown(f"---")
-        st.write(f"**Total Revenue / Home:** ${fd['Total Revenue']/fd['HEQ']:,.0f}")
-        st.info("The feedstock tipping fee provides a structural hedge, ensuring positive unit economics regardless of lumber pricing.")
+        st.write(f"**Total Revenue / HEQ:** ${fd['Total Revenue']/fd['HEQ']:,.0f}")
+        st.info("The feedstock tipping fee provides a structural hedge, ensuring positive unit economics regardless of lumber pricing volatility.")
 
 else: # Debt & Cash Flow
     with col1:
         fig_cash = go.Figure()
-        fig_cash.add_trace(go.Bar(x=df['Year'], y=df['Cash'], name='Annual Net Cash Inflow', marker_color=BR_GOLD))
-        fig_cash.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Surplus', line=dict(color=BR_WHITE, dash='dot')))
+        fig_cash.add_trace(go.Bar(x=df['Year'], y=df['Margin'], name='Operating Margin', marker_color=BR_GOLD))
+        fig_cash.add_trace(go.Bar(x=df['Year'], y=df['ERA'], name='ERA Grant (Confirmed)', marker_color=BR_WHITE))
+        fig_cash.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Cash Position', line=dict(color=BR_WHITE, dash='dot')))
         fig_cash.update_layout(
-            title="Debt Coverage: Cash Surplus Ladder",
-            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            title="3-Year Repayment Ladder (Operating + Grant Cash)",
+            template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', barmode='stack',
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_cash, use_container_width=True)
-        st.caption("💡 Note: Cumulative surplus indicates total debt repayment capacity over the project term.")
 
     with col2:
-        # Waterfall always shows focus year
         fig_w = go.Figure(go.Waterfall(
-            orientation="v", x=["Lumber", "Tipping", "Costs", "ERA Grant", "CASH FLOW"],
+            orientation="v", x=["Lumber", "Tipping", "Costs", "ERA Grant", "NET CASH"],
             y=[fd['Lumber'], fd['Tipping'], -fd['Costs'], fd['ERA'], fd['Cash']],
             measure=["relative", "relative", "relative", "relative", "total"],
             totals={"marker":{"color":BR_GOLD}}, increasing={"marker":{"color":BR_GOLD}}, decreasing={"marker":{"color":BR_RED}}
@@ -159,11 +158,10 @@ else: # Debt & Cash Flow
         fig_w.update_layout(title=f"{focus_year} Cash Walk", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_w, use_container_width=True)
 
-with st.expander("📊 View Audit-Ready Financial Data Table"):
+with st.expander("📊 View Audit-Ready v6.1 Data Table"):
     tdf = df.copy()
     tdf["Rev/Home"] = tdf["Total Revenue"] / tdf["HEQ"]
     tdf["Cost/Home"] = tdf["Costs"] / tdf["HEQ"]
-    # Re-order columns for clarity
     tdf = tdf[["Year", "HEQ", "Lumber", "Tipping", "Materials", "Total Revenue", "Costs", "Margin", "ERA", "Cash", "Rev/Home", "Cost/Home"]]
     for col in tdf.columns[2:]:
         tdf[col] = tdf[col].apply(lambda x: f"${x:,.0f}")
