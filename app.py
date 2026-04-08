@@ -31,7 +31,7 @@ st.sidebar.title("🎯 Strategic Scenarios")
 st.sidebar.info("Northmark materials are non-structural. These scenarios test pricing power and operational throughput.")
 
 scenario = st.sidebar.radio("Quick-Select Scenario:", 
-                            ["Base Case (v6.1)", "Conservative Pricing Case", "Throughput Stress-Test"])
+                            ["Base Case (v1.1)", "Conservative Pricing Case", "Throughput Stress-Test"])
 
 # Default Multipliers
 vol, yld, prc, tip, cst = 0, 0, 0, 0, 0
@@ -58,7 +58,7 @@ if st.sidebar.button("🔄 Reset to Base Case"):
     st.session_state["password_correct"] = True
     st.rerun()
 
-# --- 5. CALIBRATED ENGINE (v6.1 DATA) ---
+# --- 5. CALIBRATED ENGINE (v1.1 DATA) ---
 years, base_homes, base_recovery = ["Year 1", "Year 2", "Year 3"], [457, 960, 1200], [0.5, 0.6, 0.65]
 base_rev_targets = [4753166, 12469066, 17820600]
 base_margin_targets = [3953338, 10819704, 15428193]
