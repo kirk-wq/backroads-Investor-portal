@@ -26,39 +26,45 @@ if "password_correct" not in st.session_state:
         st.rerun()
     st.stop()
 
-# --- 3. STRATEGIC SCENARIOS (SPECIALTY MATERIALS FOCUS) ---
-st.sidebar.title("🎯 Strategic Scenarios")
-st.sidebar.info("Northmark materials are non-structural. These scenarios test pricing power and operational throughput.")
+# --- 3. STRATEGIC NARRATIVE (NEW) ---
+with st.sidebar.expander("📖 Strategic Narrative & Guide", expanded=False):
+    st.markdown(f"""
+    **Purpose:** This portal is designed to stress-test the Northmark v1.1 Financial Model.
+    
+    **Core Thesis:** Northmark is a specialty materials business, not a commodity lumber play. Our revenue is split between **Specialty ASP** (Market-facing) and **Tipping Fees** (The Floor).
+    
+    **How to Test:**
+    1. **The Floor:** Use the *Lumber Pricing* and *Tipping Fee* sliders to see how the 'Tipping Fee' revenue de-risks the project during market dips.
+    2. **Operational Leverage:** Watch the 'Unit Economics' chart on the right. As volume (HEQ) increases, observe the gap widen between Revenue and Cost per home.
+    3. **Liquidity:** The 'Cumulative Surplus' line on the main chart shows your debt-service safety margin.
+    """)
 
+# --- 4. STRATEGIC SCENARIOS ---
+st.sidebar.title("🎯 Strategic Scenarios")
 scenario = st.sidebar.radio("Quick-Select Scenario:", 
                             ["Base Case (v1.1)", "Conservative Pricing Case", "Throughput Stress-Test"])
 
-# Default Multipliers
 vol, yld, prc, tip, cst = 0, 0, 0, 0, 0
-
 if scenario == "Conservative Pricing Case":
-    st.sidebar.warning("Simulation: -20% Product ASP Drop / +10% Tipping Fee Hedge")
     prc, tip, vol = -20, 10, -5
 elif scenario == "Throughput Stress-Test":
-    st.sidebar.error("Simulation: -30% Volume / -15% Recovery Yield")
     vol, yld, cst = -30, -15, 10
 
-# --- 4. GLOBAL LEVERS ---
+# --- 5. GLOBAL LEVERS ---
 st.sidebar.divider()
 st.sidebar.header("🕹️ Sensitivity Levers")
-
-v_m = st.sidebar.slider("HEQ Volume (Homes)", -50, 50, vol, help="Throughput of salvaged homes") / 100
-p_m = st.sidebar.slider("Product Pricing (ASP)", -50, 50, prc, help="Negotiated price per BF for finished reclaimed goods") / 100
-y_m = st.sidebar.slider("Recovery Yield", -25, 25, yld, help="Efficiency of saleable material recovery") / 100
-t_m = st.sidebar.slider("Tipping Fee Power", -50, 50, tip, help="Negotiating power with demolition partners") / 100
-c_m = st.sidebar.slider("Cost Sensitivity", -20, 50, cst, help="Sensitivity to labor, fuel, and logistics inflation") / 100
+v_m = st.sidebar.slider("HEQ Volume (Homes)", -50, 50, vol, key="vol") / 100
+p_m = st.sidebar.slider("Product Pricing (ASP)", -50, 50, prc, key="prc") / 100
+y_m = st.sidebar.slider("Recovery Yield", -25, 25, yld, key="yld") / 100
+t_m = st.sidebar.slider("Tipping Fee Power", -50, 50, tip, key="tip") / 100
+c_m = st.sidebar.slider("Direct Cost Sensitivity", -20, 50, cst, key="cst") / 100
 
 if st.sidebar.button("🔄 Reset to Base Case"):
     st.session_state.clear()
     st.session_state["password_correct"] = True
     st.rerun()
 
-# --- 5. CALIBRATED ENGINE (v1.1 DATA) ---
+# --- 6. ENGINE (v1.1 DATA) ---
 years, base_homes, base_recovery = ["Year 1", "Year 2", "Year 3"], [457, 960, 1200], [0.5, 0.6, 0.65]
 base_rev_targets = [4753166, 12469066, 17820600]
 base_margin_targets = [3953338, 10819704, 15428193]
@@ -68,67 +74,44 @@ results = []
 for i in range(3):
     h = base_homes[i] * (1 + v_m)
     r = base_recovery[i] * (1 + y_m)
-    
-    # Revenue Logic (Separating Specialty Materials from Tipping Floor)
     rev_materials = (base_rev_targets[i] - (base_homes[i] * 1800)) * (1 + v_m) * (1 + y_m) * (1 + p_m)
     rev_tipping = (base_homes[i] * 1200) * (1 + v_m) * (1 + t_m)
     rev_salvage = (base_homes[i] * 600) * (1 + v_m)
-    
     total_rev = rev_materials + rev_tipping + rev_salvage
     costs = (base_rev_targets[i] - base_margin_targets[i]) * (1 + v_m) * (1 + c_m)
     margin = total_rev - costs
-    
-    results.append({
-        "Year": years[i], "HEQ": h, "Revenue": total_rev, "Margin": margin, 
-        "ERA": era_grants[i], "Cash": margin + era_grants[i], "Costs": costs
-    })
+    results.append({"Year": years[i], "HEQ": h, "Revenue": total_rev, "Margin": margin, "ERA": era_grants[i], "Cash": margin + era_grants[i], "Costs": costs})
 
 df = pd.DataFrame(results)
 y3 = df.iloc[2]
 
-# --- 6. THE PORTAL ---
+# --- 7. THE PORTAL ---
 st.title(f"🏗️ Northmark Materials | Strategic Scenario Portal")
-st.markdown(f"**Current Strategic Scenario:** {scenario}")
 
-# HERO METRICS
 m1, m2, m3, m4 = st.columns(4)
-with m1: st.metric("Y3 Exit Revenue", f"${y3['Revenue']/1e6:.2f}M", f"{((y3['Revenue']/base_rev_targets[2])-1)*100:.1f}% vs Plan")
+with m1: st.metric("Y3 Exit Revenue", f"${y3['Revenue']/1e6:.2f}M", f"{((y3['Revenue']/base_rev_targets[2])-1)*100:.1f}%")
 with m2: st.metric("Y3 Exit EBITDA", f"${y3['Margin']/1e6:.2f}M")
-with m3: st.metric("3-Yr Liquidity Surplus", f"${df['Cash'].sum()/1e6:.2f}M", help="Operating Margin + ERA Grant Reimbursements")
+with m3: st.metric("3-Yr Liquidity Surplus", f"${df['Cash'].sum()/1e6:.2f}M")
 with m4: st.metric("Margin per HEQ", f"${y3['Margin']/y3['HEQ']:,.0f}")
 
 st.divider()
 
 col1, col2 = st.columns([2, 1])
-
 with col1:
-    # LIQUIDITY LADDER
     fig = go.Figure()
     fig.add_trace(go.Bar(x=df['Year'], y=df['Margin'], name='Op Cash Margin', marker_color=BR_GOLD))
     fig.add_trace(go.Bar(x=df['Year'], y=df['ERA'], name='ERA Grant Safety Net', marker_color=BR_WHITE))
     fig.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Surplus', line=dict(color=BR_WHITE, dash='dot')))
-    fig.update_layout(
-        title="Institutional Liquidity Ladder: Operating Margin + Grant Support",
-        template="plotly_dark", barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
+    fig.update_layout(title="Institutional Liquidity Ladder", template="plotly_dark", barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     st.plotly_chart(fig, use_container_width=True)
-
 with col2:
-    # OPERATING LEVERAGE
     fig_unit = go.Figure()
     fig_unit.add_trace(go.Scatter(x=df['Year'], y=df['Revenue']/df['HEQ'], name='Rev / Home', line=dict(color=BR_GOLD, width=4)))
     fig_unit.add_trace(go.Scatter(x=df['Year'], y=df['Costs']/df['HEQ'], name='Cost / Home', line=dict(color=BR_RED, width=4)))
-    fig_unit.update_layout(
-        title="Unit Economics: Operating Leverage",
-        template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        yaxis_title="USD per Home (HEQ)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
+    fig_unit.update_layout(title="Unit Economics: Operating Leverage", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis_title="USD per HEQ", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     st.plotly_chart(fig_unit, use_container_width=True)
 
-with st.expander("📝 Detailed v6.1 Audit Table"):
+with st.expander("📊 View Detailed v1.1 Audit Table"):
     tdf = df.copy()
-    for col in ["Revenue", "Margin", "ERA", "Cash", "Costs"]:
-        tdf[col] = tdf[col].apply(lambda x: f"${x:,.0f}")
+    for col in ["Revenue", "Margin", "ERA", "Cash", "Costs"]: tdf[col] = tdf[col].apply(lambda x: f"${x:,.0f}")
     st.table(tdf)
