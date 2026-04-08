@@ -26,32 +26,32 @@ if "password_correct" not in st.session_state:
         st.rerun()
     st.stop()
 
-# --- 3. STRATEGIC SCENARIO PRESETS ---
+# --- 3. STRATEGIC SCENARIOS (SPECIALTY MATERIALS FOCUS) ---
 st.sidebar.title("🎯 Strategic Scenarios")
-st.sidebar.info("Select a preset to test the business model's resilience.")
+st.sidebar.info("Northmark materials are non-structural. These scenarios test pricing power and operational throughput.")
 
 scenario = st.sidebar.radio("Quick-Select Scenario:", 
-                            ["Base Case (v6.1)", "Lumber Bear Case", "Operational Stress-Test"])
+                            ["Base Case (v6.1)", "Conservative Pricing Case", "Throughput Stress-Test"])
 
-# Default Values (Multipliers)
+# Default Multipliers
 vol, yld, prc, tip, cst = 0, 0, 0, 0, 0
 
-if scenario == "Lumber Bear Case":
-    st.sidebar.warning("Simulation: -35% Price Drop / +10% Tipping Fee Hedge")
-    prc, tip, vol = -35, 10, -10
-elif scenario == "Operational Stress-Test":
-    st.sidebar.error("Simulation: -30% Throughput / -15% Recovery Yield")
-    vol, yld, cst = -30, -15, 15
+if scenario == "Conservative Pricing Case":
+    st.sidebar.warning("Simulation: -20% Product ASP Drop / +10% Tipping Fee Hedge")
+    prc, tip, vol = -20, 10, -5
+elif scenario == "Throughput Stress-Test":
+    st.sidebar.error("Simulation: -30% Volume / -15% Recovery Yield")
+    vol, yld, cst = -30, -15, 10
 
-# --- 4. GLOBAL LEVERS (Simplified to 5 Levers) ---
+# --- 4. GLOBAL LEVERS ---
 st.sidebar.divider()
-st.sidebar.header("🕹️ Global Sensitivity Levers")
+st.sidebar.header("🕹️ Sensitivity Levers")
 
-v_m = st.sidebar.slider("Global Volume Variance", -50, 50, vol) / 100
-p_m = st.sidebar.slider("Global Price Variance", -50, 50, prc) / 100
-y_m = st.sidebar.slider("Recovery Yield Variance", -25, 25, yld) / 100
-t_m = st.sidebar.slider("Tipping Fee Adjustment", -50, 50, tip) / 100
-c_m = st.sidebar.slider("Direct Cost Sensitivity", -20, 50, cst) / 100
+v_m = st.sidebar.slider("HEQ Volume (Homes)", -50, 50, vol, help="Throughput of salvaged homes") / 100
+p_m = st.sidebar.slider("Product Pricing (ASP)", -50, 50, prc, help="Negotiated price per BF for finished reclaimed goods") / 100
+y_m = st.sidebar.slider("Recovery Yield", -25, 25, yld, help="Efficiency of saleable material recovery") / 100
+t_m = st.sidebar.slider("Tipping Fee Power", -50, 50, tip, help="Negotiating power with demolition partners") / 100
+c_m = st.sidebar.slider("Cost Sensitivity", -20, 50, cst, help="Sensitivity to labor, fuel, and logistics inflation") / 100
 
 if st.sidebar.button("🔄 Reset to Base Case"):
     st.session_state.clear()
@@ -69,12 +69,12 @@ for i in range(3):
     h = base_homes[i] * (1 + v_m)
     r = base_recovery[i] * (1 + y_m)
     
-    # Simple Global Multipliers for Strategic View
-    rev_lum = (base_rev_targets[i] - (base_homes[i] * 1800)) * (1 + v_m) * (1 + y_m) * (1 + p_m)
-    rev_tip = (base_homes[i] * 1200) * (1 + v_m) * (1 + t_m)
-    rev_mat = (base_homes[i] * 600) * (1 + v_m)
+    # Revenue Logic (Separating Specialty Materials from Tipping Floor)
+    rev_materials = (base_rev_targets[i] - (base_homes[i] * 1800)) * (1 + v_m) * (1 + y_m) * (1 + p_m)
+    rev_tipping = (base_homes[i] * 1200) * (1 + v_m) * (1 + t_m)
+    rev_salvage = (base_homes[i] * 600) * (1 + v_m)
     
-    total_rev = rev_lum + rev_tip + rev_mat
+    total_rev = rev_materials + rev_tipping + rev_salvage
     costs = (base_rev_targets[i] - base_margin_targets[i]) * (1 + v_m) * (1 + c_m)
     margin = total_rev - costs
     
@@ -86,48 +86,47 @@ for i in range(3):
 df = pd.DataFrame(results)
 y3 = df.iloc[2]
 
-# --- 6. STRATEGIC DASHBOARD ---
+# --- 6. THE PORTAL ---
 st.title(f"🏗️ Northmark Materials | Strategic Scenario Portal")
-st.markdown(f"**Current Scenario:** {scenario}")
+st.markdown(f"**Current Strategic Scenario:** {scenario}")
 
-# FIXED HERO METRICS (Always show the Run-Rate and the Safety)
+# HERO METRICS
 m1, m2, m3, m4 = st.columns(4)
-with m1: st.metric("Year 3 Exit Revenue", f"${y3['Revenue']/1e6:.2f}M", f"{((y3['Revenue']/base_rev_targets[2])-1)*100:.1f}%")
-with m2: st.metric("Year 3 Exit EBITDA", f"${y3['Margin']/1e6:.2f}M")
-with m3: st.metric("3-Yr Cumulative Cash Inflow", f"${df['Cash'].sum()/1e6:.2f}M", help="Operating Margin + ERA Grant Reimbursements")
-with m4: st.metric("Y3 Margin per Home", f"${y3['Margin']/y3['HEQ']:,.0f}")
+with m1: st.metric("Y3 Exit Revenue", f"${y3['Revenue']/1e6:.2f}M", f"{((y3['Revenue']/base_rev_targets[2])-1)*100:.1f}% vs Plan")
+with m2: st.metric("Y3 Exit EBITDA", f"${y3['Margin']/1e6:.2f}M")
+with m3: st.metric("3-Yr Liquidity Surplus", f"${df['Cash'].sum()/1e6:.2f}M", help="Operating Margin + ERA Grant Reimbursements")
+with m4: st.metric("Margin per HEQ", f"${y3['Margin']/y3['HEQ']:,.0f}")
 
 st.divider()
 
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    # THE KILLER CHART: THE CASH LADDER
+    # LIQUIDITY LADDER
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=df['Year'], y=df['Margin'], name='Operating Cash Margin', marker_color=BR_GOLD))
-    fig.add_trace(go.Bar(x=df['Year'], y=df['ERA'], name='Confirmed ERA Grants', marker_color=BR_WHITE))
-    fig.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Cash Surplus', line=dict(color=BR_WHITE, dash='dot')))
+    fig.add_trace(go.Bar(x=df['Year'], y=df['Margin'], name='Op Cash Margin', marker_color=BR_GOLD))
+    fig.add_trace(go.Bar(x=df['Year'], y=df['ERA'], name='ERA Grant Safety Net', marker_color=BR_WHITE))
+    fig.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Surplus', line=dict(color=BR_WHITE, dash='dot')))
     fig.update_layout(
-        title="Total Liquidity Ladder: Operations + Grant Safety Net",
+        title="Institutional Liquidity Ladder: Operating Margin + Grant Support",
         template="plotly_dark", barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    # THE UNIT TRUTH: REVENUE vs COST PER HOME
+    # OPERATING LEVERAGE
     fig_unit = go.Figure()
     fig_unit.add_trace(go.Scatter(x=df['Year'], y=df['Revenue']/df['HEQ'], name='Rev / Home', line=dict(color=BR_GOLD, width=4)))
     fig_unit.add_trace(go.Scatter(x=df['Year'], y=df['Costs']/df['HEQ'], name='Cost / Home', line=dict(color=BR_RED, width=4)))
     fig_unit.update_layout(
-        title="Operating Leverage: Efficiency per Home",
+        title="Unit Economics: Operating Leverage",
         template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        yaxis_title="USD per Home",
+        yaxis_title="USD per Home (HEQ)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_unit, use_container_width=True)
 
-# THE DATA TABLE (Now in its own section at bottom)
 with st.expander("📝 Detailed v6.1 Audit Table"):
     tdf = df.copy()
     for col in ["Revenue", "Margin", "ERA", "Cash", "Costs"]:
