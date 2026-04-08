@@ -55,7 +55,8 @@ t_m = st.sidebar.slider("Tipping Fee Adjustment", -50, 50, tip, key="tip") / 100
 c_m = st.sidebar.slider("Direct Cost Sensitivity", -20, 50, cst, key="cst") / 100
 
 if st.sidebar.button("🔄 Reset to Base Case"):
-    st.session_state.clear()
+    for key in ["vol", "prc", "yld", "tip", "cst"]:
+        st.session_state[key] = 0
     st.session_state["password_correct"] = True
     st.rerun()
 
@@ -71,13 +72,26 @@ def run_model(v, p, y, t, c, y1_s=0):
         curr_v = (v + y1_s) if i == 0 else v
         h = base_homes[i] * (1 + curr_v)
         r = base_recovery[i] * (1 + y)
-        rev_m = (base_rev_targets[i] - (base_homes[i] * 1800)) * (1 + curr_v) * (1 + r) * (1 + p)
+        
+        # Split Revenue: Materials vs Service Floor
+        rev_m = (base_rev_targets[i] - (base_homes[i] * 1800)) * (1 + curr_v) * (1 + y) * (1 + p)
         rev_t = (base_homes[i] * 1200) * (1 + curr_v) * (1 + t)
         rev_s = (base_homes[i] * 600) * (1 + curr_v)
         total_rev = rev_m + rev_t + rev_s
+        
         costs = (base_rev_targets[i] - base_margin_targets[i]) * (1 + curr_v) * (1 + c)
         margin = total_rev - costs
-        res.append({"Year": years[i], "HEQ": h, "Revenue": total_rev, "Margin": margin, "Cash": margin + era_grants[i], "Costs": costs})
+        
+        # THE FIX: Added "ERA" to the data dictionary
+        res.append({
+            "Year": years[i], 
+            "HEQ": h, 
+            "Revenue": total_rev, 
+            "Margin": margin, 
+            "ERA": era_grants[i], 
+            "Cash": margin + era_grants[i], 
+            "Costs": costs
+        })
     return pd.DataFrame(res)
 
 df = run_model(v_m, p_m, y_m, t_m, c_m, y1_shock)
@@ -97,7 +111,6 @@ if view_mode == "Risk Sensitivity (The Heatmap)":
     for vp in v_range:
         row = []
         for pp in p_range:
-            # Quick calc for Y3 Margin
             h_h = 1200 * (1 + vp)
             r_r = 0.65 * (1 + y_m)
             rev = (17820600 - (1200 * 1800)) * (1 + vp) * (1 + r_r) * (1 + pp) + (1200 * 1200 * (1 + vp) * (1 + t_m)) + (1200 * 600 * (1+vp))
@@ -113,7 +126,7 @@ if view_mode == "Risk Sensitivity (The Heatmap)":
                         text_auto=".1f")
     fig_heat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color=BR_WHITE))
     st.plotly_chart(fig_heat, use_container_width=True)
-    st.info("💡 Insight: The 'Gold Zone' represents scenarios where Northmark achieves a Tier-1 exit valuation. Even in the 'Dark Zone' (Base-ish cases), the business remains cash-flow positive.")
+    st.info("💡 Insight: The 'Gold Zone' represents scenarios where Northmark achieves a Tier-1 exit valuation.")
 
 else:
     # --- HERO METRICS ---
@@ -131,7 +144,7 @@ else:
             fig.add_trace(go.Bar(x=df['Year'], y=df['Margin'], name='Op Cash Margin', marker_color=BR_GOLD))
             fig.add_trace(go.Bar(x=df['Year'], y=df['ERA'], name='ERA Grants', marker_color=BR_WHITE))
             fig.add_trace(go.Scatter(x=df['Year'], y=df['Cash'].cumsum(), name='Cumulative Surplus', line=dict(color=BR_WHITE, dash='dot')))
-            fig.update_layout(title="Liquidity Ladder", template="plotly_dark", barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_layout(title="Institutional Liquidity Ladder", template="plotly_dark", barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig, use_container_width=True)
         with col2:
             fig_unit = go.Figure()
@@ -143,20 +156,20 @@ else:
     elif view_mode == "Debt & Cash Flow":
         with col1:
             fig_w = go.Figure(go.Waterfall(
-                orientation="v", x=["Lumber", "Tipping", "Costs", "ERA Grant", "NET CASH"],
-                y=[y3['Revenue']*0.8, y3['Revenue']*0.2, -y3['Costs'], 632296, y3['Cash']],
+                orientation="v", x=["Lumber Sales", "Tipping Floor", "Op Costs", "ERA Grant", "NET CASH"],
+                y=[y3['Revenue']*0.88, y3['Revenue']*0.12, -y3['Costs'], 632296, y3['Cash']],
                 measure=["relative", "relative", "relative", "relative", "total"],
                 totals={"marker":{"color":BR_GOLD}}, increasing={"marker":{"color":BR_GOLD}}, decreasing={"marker":{"color":BR_RED}}
             ))
-            fig_w.update_layout(title="Year 3 Cash Walk", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
+            fig_w.update_layout(title="Year 3 Cash Walk (Unit Economics)", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_w, use_container_width=True)
         with col2:
             st.subheader("Lender Security")
             st.write(f"**Y1 Cash Buffer:** ${df.iloc[0]['Cash']/1e6:.2f}M")
             st.write(f"**Total Grant Coverage:** $1.98M")
-            st.info("The ERA Grant reimbursements are non-operating inflows that provide a prioritized debt-service cushion.")
+            st.info("The ERA Grant reimbursements provide a prioritized debt-service cushion.")
 
-with st.expander("📊 View Audit-Ready Table"):
+with st.expander("📊 View Audit-Ready v1.1 Data Table"):
     tdf = df.copy()
-    for col in ["Revenue", "Margin", "Cash", "Costs"]: tdf[col] = tdf[col].apply(lambda x: f"${x:,.0f}")
+    for col in ["Revenue", "Margin", "ERA", "Cash", "Costs"]: tdf[col] = tdf[col].apply(lambda x: f"${x:,.0f}")
     st.table(tdf)
