@@ -26,33 +26,29 @@ if "password_correct" not in st.session_state:
         st.rerun()
     st.stop()
 
-# --- 3. SESSION STATE INITIALIZATION ---
-if "reset_key" not in st.session_state:
-    st.session_state["reset_key"] = 0
+# --- 3. SESSION STATE & RESET ---
+if "reset_key" not in st.session_state: st.session_state["reset_key"] = 0
 
-# --- 4. STRATEGIC NARRATIVE & GUIDE ---
+# --- 4. STRATEGIC NARRATIVE ---
 with st.sidebar.expander("📖 Strategic Narrative & Guide", expanded=False):
     st.markdown(f"""
     **Thesis:** Northmark is a specialty materials brand with a contracted revenue 'floor' (Tipping Fees).
     
-    **The Moat:** 25% of our revenue per home (HEQ) is independent of material pricing. This provides a structural hedge against market volatility.
+    **The Moat:** 25% of our revenue per home (HEQ) is independent of material pricing.
     
     **Instructions:**
-    1. **Startup Risk:** Select 'Year 1 Ramp-Up Delay' to see how government grants provide a liquidity bridge.
-    2. **Leverage:** Watch the 'Unit Economic Walk' chart. As volume (HEQ) increases, observe the gap widen between Revenue and Total Cost per home.
+    1. **Startup Risk:** Select 'Year 1 Ramp-Up Delay' to see the liquidity bridge provided by grants.
+    2. **Leverage:** Observe the 'Unit Economic Walk' to see margin expansion per home at scale.
     """)
 
 # --- 5. STRATEGIC SCENARIOS ---
 st.sidebar.title("🎯 Strategic Scenarios")
-
-# Scenario Selector
 scenario = st.sidebar.radio(
     "Quick-Select Stress Test:",
     ["Base Case (v1.1)", "Year 1 Ramp-Up Delay", "Conservative Pricing Case"],
     key=f"scenario_radio_{st.session_state['reset_key']}"
 )
 
-# Hard Reset Button
 if st.sidebar.button("🔄 Reset All to Base Case"):
     st.session_state["reset_key"] += 1
     st.rerun()
@@ -69,52 +65,52 @@ elif scenario == "Conservative Pricing Case":
 st.sidebar.divider()
 st.sidebar.header("🕹️ Fine-Tune Levers")
 
-# We link the sliders to the scenario defaults
-v_m = st.sidebar.slider("Global Volume Variance", -50, 50, vol, key=f"v_{st.session_state['reset_key']}") / 100
+v_m = st.sidebar.slider("HEQ Volume Variance", -50, 50, vol, key=f"v_{st.session_state['reset_key']}") / 100
 p_m = st.sidebar.slider("Pricing Power (ASP)", -50, 50, prc, key=f"p_{st.session_state['reset_key']}") / 100
 y_m = st.sidebar.slider("Recovery Yield Variance", -25, 25, yld, key=f"y_{st.session_state['reset_key']}") / 100
 t_m = st.sidebar.slider("Tipping Fee Adjustment", -50, 50, tip, key=f"t_{st.session_state['reset_key']}") / 100
 c_m = st.sidebar.slider("Direct Cost Sensitivity", -20, 50, cst, key=f"c_{st.session_state['reset_key']}") / 100
 
-# --- 6. ENGINE (v1.1 CALIBRATED TO $22.0M ENDING CASH) ---
-years, base_h, base_r = ["Year 1", "Year 2", "Year 3"], [457, 960, 1200], [0.5, 0.6, 0.65]
-base_rev, base_mar = [4753166, 12469066, 17820600], [3953338, 10819704, 15428193]
+# --- 6. ENGINE (EXACT CALIBRATION TO v6.1 MODEL) ---
+years = ["Year 1", "Year 2", "Year 3"]
+base_h = [457, 960, 1200]
+base_rev = [4753166, 12469066, 17820600]
+base_mar = [3953338, 10819704, 15428193]
 era = [590396, 761900, 632296]
-
-# Fixed Burdens (SG&A + CapEx + Interest) calibrated to hit $22,006,194 ending cash
+# Overhead/CapEx Burden fixed to ensure $22,006,194 ending cash at base
 fixed_burdens = [2500000, 3500000, 4179633] 
 
 results = []
 for i in range(3):
-    curr_v_shock = (v_m + y1_v_shock) if i == 0 else v_m
-    h = base_h[i] * (1 + curr_v_shock)
-    r = base_r[i] * (1 + y_m)
+    curr_v = (v_m + y1_v_shock) if i == 0 else v_m
+    h = base_h[i] * (1 + curr_v)
     
-    rev_m = (base_rev[i] - (base_h[i] * 1800)) * (1 + curr_v_shock) * (r/base_r[i]) * (1 + p_m)
-    rev_t = (base_h[i] * 1200) * (1 + curr_v_shock) * (1 + t_m)
-    rev_s = (base_h[i] * 600) * (1 + curr_v_shock)
+    # Revenue Split
+    rev_mat = (base_rev[i] - (base_h[i] * 1800)) * (1 + curr_v) * (1 + y_m) * (1 + p_m)
+    rev_tip = (base_h[i] * 1200) * (1 + curr_v) * (1 + t_m)
+    rev_sal = (base_h[i] * 600) * (1 + curr_v)
     
-    total_rev = rev_m + rev_t + rev_s
-    costs = (base_rev[i] - base_mar[i]) * (1 + curr_v_shock) * (1 + c_m)
-    margin = total_rev - costs
-    net_cash_annual = margin + era[i] - fixed_burdens[i]
+    total_rev = rev_mat + rev_tip + rev_sal
+    direct_costs = (base_rev[i] - base_mar[i]) * (1 + curr_v) * (1 + c_m)
+    margin = total_rev - direct_costs
+    net_cash = margin + era[i] - fixed_burdens[i]
     
     results.append({
         "Year": years[i], "HEQ": h, "Rev": total_rev, "Margin": margin, 
-        "ERA": era[i], "Net Cash": net_cash_annual, "Costs": costs
+        "ERA": era[i], "Net Cash": net_cash, "Costs": direct_costs
     })
 
 df = pd.DataFrame(results)
 y3 = df.iloc[2]
-cumulative_bank_balance = df["Net Cash"].sum()
+cumulative_bank = df["Net Cash"].sum()
 
 # --- 7. PORTAL VIEW ---
-st.title(f"🏗️ Northmark Materials | Strategic Scenario Portal (v1.1)")
+st.title(f" Northmark Materials | Strategic Scenario Portal (v1.1)")
 
 m1, m2, m3, m4 = st.columns(4)
 with m1: st.metric("Y3 Exit EBITDA", f"${y3['Margin']/1e6:.2f}M")
 with m2: st.metric("Y3 Margin per HEQ", f"${y3['Margin']/y3['HEQ']:,.0f}")
-with m3: st.metric("3-Yr Ending Cash", f"${cumulative_bank_balance/1e6:.2f}M", help="Projected bank balance after all SG&A, CapEx, and Taxes.")
+with m3: st.metric("3-Yr Ending Cash", f"${cumulative_bank/1e6:.2f}M", help="Projected bank balance after SG&A, CapEx, and Taxes.")
 with m4: st.metric("Y1 Survival Margin", f"${df.iloc[0]['Margin']/1e6:.2f}M")
 
 st.divider()
@@ -126,12 +122,10 @@ with c_l:
     fig.add_trace(go.Scatter(x=df['Year'], y=df['Net Cash'].cumsum(), name='Cumulative Bank Balance', line=dict(color=BR_WHITE, dash='dot')))
     fig.update_layout(title="Projected Liquidity (Net Cash Position)", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("💡 Legend: Click 'Cumulative Bank Balance' to isolate annual flow.")
 
 with c_r:
     fig_u = go.Figure()
     fig_u.add_trace(go.Scatter(x=df['Year'], y=df['Rev']/df['HEQ'], name='Rev/HEQ', line=dict(color=BR_GOLD, width=4)))
-    # Display Total Cost (Direct + Fixed Burden allocation)
     fig_u.add_trace(go.Scatter(x=df['Year'], y=(df['Costs'] + fixed_burdens)/df['HEQ'], name='Total Cost/HEQ', line=dict(color=BR_RED, width=4)))
     fig_u.update_layout(title="Unit Economic Walk", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis_title="Total $ per HEQ")
     st.plotly_chart(fig_u, use_container_width=True)
